@@ -1,0 +1,73 @@
+name: fhfctf
+
+services:
+  ctfd:
+    # build: .
+    image: ctfd/ctfd
+    user: root
+    restart: always
+    # ports:
+    #   - "8000:8000"
+    environment:
+      - UPLOAD_FOLDER=/var/uploads
+      - DATABASE_URL=mysql+pymysql://ctfd:ctfd@db/ctfd
+      - REDIS_URL=redis://cache:6379
+      - WORKERS=1
+      - LOG_FOLDER=/var/log/CTFd
+      - ACCESS_LOG=-
+      - ERROR_LOG=-
+      - REVERSE_PROXY=true
+    volumes:
+      - .data/CTFd/logs:/var/log/CTFd
+      - .data/CTFd/uploads:/var/uploads
+      - .data/CTFd/plugins:/opt/CTFd/plugins
+    depends_on:
+      - db
+    networks:
+      tunnel:
+      internal:
+
+  db:
+    image: mariadb:10.11
+    restart: always
+    environment:
+      - MARIADB_ROOT_PASSWORD=ctfd-5f1bc6432ba3922d3e17c65bede9c979
+      - MARIADB_USER=FhFCTF
+      - MARIADB_PASSWORD=ctfd-b0d5c9289f7f9070e9ea5d87f5fed0cf
+      - MARIADB_DATABASE=ctfd
+      - MARIADB_AUTO_UPGRADE=1
+    volumes:
+      - .data/mysql:/var/lib/mysql
+    networks:
+      internal:
+    # This command is required to set important mariadb defaults
+    command:
+      [
+        mysqld,
+        --character-set-server=utf8mb4,
+        --collation-server=utf8mb4_unicode_ci,
+        --wait_timeout=28800,
+        --log-warnings=0,
+      ]
+
+  cache:
+    image: redis:4
+    restart: always
+    volumes:
+      - .data/redis:/data
+    networks:
+      internal:
+
+  tunnel:
+    image: cloudflare/cloudflared
+    restart: always
+    environment:
+      TUNNEL_TOKEN: <your-tunnel-token>
+    command: tunnel --no-autoupdate run
+    networks:
+      tunnel:
+
+networks:
+  tunnel:
+  internal:
+    internal: true
