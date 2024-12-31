@@ -1,4 +1,4 @@
-name: fhfctf
+name: your_project_name
 
 services:
   ctfd:
