@@ -190,8 +190,7 @@ def fetch_ctfd_first_blood_data() -> list[FirstBloodRecord]:
     first_bloods = []
     for challenge in challenges:
         solves_response = requests.get(
-            f'{ctfd_config.ctfd_webhook_url}/api/v1/challenges/{
-                challenge["id"]}/solves',
+            f'{ctfd_config.ctfd_webhook_url}/api/v1/challenges/{challenge["id"]}/solves',
             headers=headers
         )
         solves = solves_response.json().get('data')
