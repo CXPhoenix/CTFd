@@ -25,15 +25,16 @@ services:
       - db
     networks:
       tunnel:
+      notify:
       internal:
 
   db:
     image: mariadb:10.11
     restart: always
     environment:
-      - MARIADB_ROOT_PASSWORD=ctfd-5f1bc6432ba3922d3e17c65bede9c979
-      - MARIADB_USER=FhFCTF
-      - MARIADB_PASSWORD=ctfd-b0d5c9289f7f9070e9ea5d87f5fed0cf
+      - MARIADB_ROOT_PASSWORD=<db_root_password>
+      - MARIADB_USER=<db_user>
+      - MARIADB_PASSWORD=<db_user_password>
       - MARIADB_DATABASE=ctfd
       - MARIADB_AUTO_UPGRADE=1
     volumes:
@@ -57,6 +58,15 @@ services:
       - .data/redis:/data
     networks:
       internal:
+  
+  first_blood_notify:
+    build: first_blood_notification
+    restart: always
+    volumes:
+      - .data/CTFd/fb_notify/notify.db:/opt/notification/notify.db
+    networks:
+      notify:
+    command: python notify.py
 
   tunnel:
     image: cloudflare/cloudflared
@@ -69,5 +79,6 @@ services:
 
 networks:
   tunnel:
+  notify:
   internal:
     internal: true
