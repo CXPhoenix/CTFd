@@ -190,7 +190,8 @@ def fetch_ctfd_first_blood_data() -> list[FirstBloodRecord]:
     first_bloods = []
     for challenge in challenges:
         solves_response = requests.get(
-            f'{ctfd_config.ctfd_webhook_url}/api/v1/challenges/{challenge["id"]}/solves',
+            f'{ctfd_config.ctfd_webhook_url}/api/v1/challenges/{
+                challenge["id"]}/solves',
             headers=headers
         )
         solves = solves_response.json().get('data')
@@ -200,7 +201,7 @@ def fetch_ctfd_first_blood_data() -> list[FirstBloodRecord]:
             submission = requests.get(
                 f"{ctfd_config.ctfd_webhook_url}/api/v1/submissions?challeng_id={challenge.get('id')}&team_id={first_solve.get('account_id')}", headers=headers).json().get('data')[0]
             user = requests.get(
-                f'{ctfd_config.ctfd_webhook_url}/api/v1/users/{submission.get('user_id')}', headers=headers).json().get('data')
+                f'{ctfd_config.ctfd_webhook_url}/api/v1/users/{submission.get("user_id")}', headers=headers).json().get('data')
             # print(user)
             first_bloods.append(FirstBloodRecord(
                 challenge_id=challenge['id'],
@@ -243,9 +244,7 @@ def notify_new_first_bloods():
 init_db()
 run_config = RunConfig()
 while True:
-    print(f"******** {datetime.now(timezone(timedelta(hours=8))
-                                   ).strftime('%Y-%m-%d %H:%M:%S %Z')} start process ********")
+    print(f"******** {datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S %Z')} start process ********")
     notify_new_first_bloods()
-    print(f"******** {datetime.now(timezone(timedelta(hours=8))
-                                   ).strftime('%Y-%m-%d %H:%M:%S %Z')} end process ********")
+    print(f"******** {datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S %Z')} end process ********")
     time.sleep(run_config.cron_time)
