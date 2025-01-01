@@ -232,8 +232,8 @@ def notify_new_first_bloods():
                 description=f"Challenge: {blood.challenge_name}",
                 color="ff0000"
             )
-            embed.add_field(name="Solver", value=blood.first_blood_player_name)
-            embed.add_field(name="Team", value=blood.first_blood_player_team)
+            embed.add_embed_field(name="Solver", value=blood.first_blood_player_name)
+            embed.add_embed_field(name="Team", value=blood.first_blood_player_team)
             webhook.add_embed(embed)
             webhook.execute()
             webhook.remove_embed(0)  # Clear embed for next iteration
