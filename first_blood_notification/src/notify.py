@@ -9,9 +9,6 @@ import requests
 from pydantic import BaseModel, ConfigDict
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
-import discord_webhook
-
 dotenv_file = Path(__file__).parent / Path('.env')
 
 
@@ -215,28 +212,20 @@ def fetch_ctfd_first_blood_data() -> list[FirstBloodRecord]:
 
 def notify_new_first_bloods():
     first_bloods = fetch_ctfd_first_blood_data()
-    webhook = discord_webhook.DiscordWebhook(url=dc_config.dc_webhook_url)
-
+    content = ""
+    
     for blood in first_bloods:
         blood_time = datetime.fromtimestamp(
             blood.timestamp, timezone(timedelta(hours=8)))
-        print(f"""******** {blood.challenge_name} 🩸 First Blood ********
+        blood_content = f"""******** {blood.challenge_name} 🩸 First Blood ********
     Solved time: {blood_time.strftime('%Y-%m-%d %H:%M:%S %Z')}
     Solver: {blood.first_blood_player_name} ({blood.first_blood_player_team})
-""")
+"""
         existing = read_by_challenge_id(blood.challenge_id)
         if existing is None:
             create_record(blood)
-            embed = discord_webhook.DiscordEmbed(
-                title="🩸 New First Blood!",
-                description=f"Challenge: {blood.challenge_name}",
-                color="ff0000"
-            )
-            embed.add_embed_field(name="Solver", value=blood.first_blood_player_name)
-            embed.add_embed_field(name="Team", value=blood.first_blood_player_team)
-            webhook.add_embed(embed)
-            webhook.execute()
-            webhook.remove_embed(0)  # Clear embed for next iteration
+            content += blood_content
+    requests.post(f'{dc_config.dc_webhook_url}', headers={"Content-type": "application/json"}, json={"content": content})
 
 
 init_db()
