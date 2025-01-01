@@ -153,7 +153,7 @@ def read_by_challenge_id(challenge_id: int) -> Optional[FirstBloodRecord]:
             first_blood_player_id=row[3],
             first_blood_player_name=row[4],
             first_blood_player_team=row[5],
-            timestamp=row[6]
+            timestamp=time.mktime(datetime.strptime(row[6], "%Y-%m-%d %H:%M:%S").timetuple())
         )
     return None
 
