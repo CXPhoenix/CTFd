@@ -176,8 +176,7 @@ def update_record(record: FirstBloodRecord) -> None:
 
 def fetch_ctfd_first_blood_data() -> list[FirstBloodRecord]:
     headers = {
-        'Authorization':
-            f'Token {ctfd_config.ctfd_webhook_token}',
+        'Authorization': f'Token {ctfd_config.ctfd_webhook_token}',
         'Content-type': 'application/json'
     }
     response = requests.get(
@@ -190,18 +189,15 @@ def fetch_ctfd_first_blood_data() -> list[FirstBloodRecord]:
     first_bloods = []
     for challenge in challenges:
         solves_response = requests.get(
-            f'{ctfd_config.ctfd_webhook_url}/api/v1/challenges/{
-                challenge["id"]}/solves',
+            f'{ctfd_config.ctfd_webhook_url}/api/v1/challenges/{challenge["id"]}/solves',
             headers=headers
         )
         solves = solves_response.json().get('data')
         # print(solves)
         if solves:
             first_solve = solves[0]  # First solve is the first blood
-            submission = requests.get(
-                f"{ctfd_config.ctfd_webhook_url}/api/v1/submissions?challeng_id={challenge.get('id')}&team_id={first_solve.get('account_id')}", headers=headers).json().get('data')[0]
-            user = requests.get(
-                f'{ctfd_config.ctfd_webhook_url}/api/v1/users/{submission.get("user_id")}', headers=headers).json().get('data')
+            submission = requests.get(f"{ctfd_config.ctfd_webhook_url}/api/v1/submissions?challeng_id={challenge.get('id')}&team_id={first_solve.get('account_id')}", headers=headers).json().get('data')[0]
+            user = requests.get(f'{ctfd_config.ctfd_webhook_url}/api/v1/users/{submission.get("user_id")}', headers=headers).json().get('data')
             # print(user)
             first_bloods.append(FirstBloodRecord(
                 challenge_id=challenge['id'],
