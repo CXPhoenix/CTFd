@@ -215,17 +215,17 @@ def notify_new_first_bloods():
     content = ""
     
     for blood in first_bloods:
-        blood_time = datetime.fromtimestamp(
-            blood.timestamp, timezone(timedelta(hours=8)))
-        blood_content = f"""## ** {blood.challenge_name} 🩸 First Blood **
+        blood_time = datetime.fromtimestamp(blood.timestamp, timezone(timedelta(hours=8))) + timedelta(hours=8)
+        blood_content = f"""## **{blood.challenge_name} 🩸 First Blood**
 ### Solved time: {blood_time.strftime('%Y-%m-%d %H:%M:%S %Z')}
 ### Solver: {blood.first_blood_player_name} ({blood.first_blood_player_team})
-
+------
 """
         existing = read_by_challenge_id(blood.challenge_id)
         if existing is None:
             create_record(blood)
             content += blood_content
+    print(content)
     requests.post(f'{dc_config.dc_webhook_url}', headers={"Content-type": "application/json"}, json={"content": content})
 
 
