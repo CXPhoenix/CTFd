@@ -23,7 +23,7 @@ services:
     networks:
         default:
         internal:
-
+  
   nginx:
     image: nginx:stable
     restart: always
@@ -38,27 +38,34 @@ services:
     image: mariadb:10.11
     restart: always
     environment:
-      - MARIADB_ROOT_PASSWORD=ctfd
-      - MARIADB_USER=ctfd
-      - MARIADB_PASSWORD=ctfd
+      - MARIADB_ROOT_PASSWORD=ctfd-5f1bc6432ba3922d3e17c65bede9c979
+      - MARIADB_USER=FhFCTF
+      - MARIADB_PASSWORD=ctfd-b0d5c9289f7f9070e9ea5d87f5fed0cf
       - MARIADB_DATABASE=ctfd
       - MARIADB_AUTO_UPGRADE=1
     volumes:
       - .data/mysql:/var/lib/mysql
     networks:
-        internal:
+      internal:
     # This command is required to set important mariadb defaults
-    command: [mysqld, --character-set-server=utf8mb4, --collation-server=utf8mb4_unicode_ci, --wait_timeout=28800, --log-warnings=0]
+    command:
+      [
+        mysqld,
+        --character-set-server=utf8mb4,
+        --collation-server=utf8mb4_unicode_ci,
+        --wait_timeout=28800,
+        --log-warnings=0,
+      ]
 
   cache:
     image: redis:4
     restart: always
     volumes:
-    - .data/redis:/data
+      - .data/redis:/data
     networks:
-        internal:
+      internal:
 
 networks:
-    default:
-    internal:
-        internal: true
+  default:
+  internal:
+    internal: true
