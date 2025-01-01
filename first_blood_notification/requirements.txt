@@ -1,7 +1,6 @@
 annotated-types
 certifi
 charset-normalizer
-discord-webhook
 idna
 pydantic-core
 pydantic-settings

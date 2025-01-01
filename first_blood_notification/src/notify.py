@@ -1,3 +1,5 @@
+from datetime import datetime, timezone, timedelta
+import time
 from typing import Optional
 
 from pathlib import Path
@@ -6,9 +8,6 @@ import sqlite3
 import requests
 from pydantic import BaseModel, ConfigDict
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-
-import discord_webhook
 
 dotenv_file = Path(__file__).parent / Path('.env')
 
@@ -35,6 +34,10 @@ class DBConfig(EnvConfig):
     db_name: Optional[str] = None
 
 
+class RunConfig(EnvConfig):
+    cron_time: int = 10
+
+
 class FirstBloodRecord(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -44,7 +47,7 @@ class FirstBloodRecord(BaseModel):
     first_blood_player_id: int
     first_blood_player_name: str
     first_blood_player_team: str
-    timestamp: Optional[str] = None
+    timestamp: Optional[float] = None
 
 
 class FirstBloodFilter(BaseModel):
@@ -68,7 +71,7 @@ def init_db():
     if db_config.db_name is None:
         db_config.db_name = 'db'
     curr = conn.cursor()
-    curr.execute("""CREATE TABLE IF NOT EXISTS ? (
+    curr.execute(f"""CREATE TABLE IF NOT EXISTS {db_config.db_name} (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         challenge_id INTEGER NOT NULL,
         challenge_name TEXT NOT NULL,
@@ -76,21 +79,21 @@ def init_db():
         first_blood_player_name TEXT NOT NULL,
         first_blood_player_team TEXT NOT NULL,
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-    )""", (db_config.db_name))
+    )""")
 
 
 def create_record(record: FirstBloodRecord) -> None:
     curr = conn.cursor()
-    curr.execute("""
-        INSERT INTO ? (challenge_id, challenge_name, first_blood_player_id, first_blood_player_name, first_blood_player_team)
+    curr.execute(f"""
+        INSERT INTO {db_config.db_name} (challenge_id, challenge_name, first_blood_player_id, first_blood_player_name, first_blood_player_team)
         VALUES (?, ?, ?, ?, ?)
-    """, (db_config.db_name, record.challenge_id, record.challenge_name, record.first_blood_player_id, record.first_blood_player_name, record.first_blood_player_team))
+    """, (record.challenge_id, record.challenge_name, record.first_blood_player_id, record.first_blood_player_name, record.first_blood_player_team))
     conn.commit()
 
 
 def read_all_records() -> list[FirstBloodRecord]:
     curr = conn.cursor()
-    curr.execute("SELECT * FROM ?", (db_config.db_name))
+    curr.execute(f"SELECT * FROM {db_config.db_name}")
     return [FirstBloodRecord(
         id=row[0],
         challenge_id=row[1],
@@ -121,7 +124,7 @@ def read_records_with_filter(filter_params: FirstBloodFilter) -> list[FirstBlood
             values.append(v)
 
     where_clause = " AND ".join(conditions) if conditions else "1=1"
-    query = f"SELECT * FROM ? WHERE {where_clause}"
+    query = f"SELECT * FROM {db_config.db_name} WHERE {where_clause}"
     curr.execute(query, tuple([db_config.db_name] + values))
 
     return [FirstBloodRecord(
@@ -138,7 +141,7 @@ def read_records_with_filter(filter_params: FirstBloodFilter) -> list[FirstBlood
 def read_by_challenge_id(challenge_id: int) -> Optional[FirstBloodRecord]:
     curr = conn.cursor()
     curr.execute(
-        "SELECT * FROM ? WHERE challenge_id = ?", (db_config.db_name, challenge_id,))
+        f"SELECT * FROM {db_config.db_name} WHERE challenge_id = ?", (challenge_id,))
     if (row := curr.fetchone()) is not None:
         return FirstBloodRecord(
             id=row[0],
@@ -147,7 +150,7 @@ def read_by_challenge_id(challenge_id: int) -> Optional[FirstBloodRecord]:
             first_blood_player_id=row[3],
             first_blood_player_name=row[4],
             first_blood_player_team=row[5],
-            timestamp=row[6]
+            timestamp=time.mktime(datetime.strptime(row[6], "%Y-%m-%d %H:%M:%S").timetuple())
         )
     return None
 
@@ -163,57 +166,73 @@ def update_record(record: FirstBloodRecord) -> None:
         return
 
     updates = ", ".join([f"{k} = ?" for k in update_data.keys()])
-    query = f"UPDATE ? SET {updates} WHERE id = ?"
-    curr.execute(query, (db_config.db_name, *update_data.values(), record.id))
+    query = f"UPDATE {db_config.db_name} SET {updates} WHERE id = ?"
+    curr.execute(query, (*update_data.values(), record.id))
     conn.commit()
 
 
 def fetch_ctfd_first_blood_data() -> list[FirstBloodRecord]:
-    headers = {'Authorization': f'Token {ctfd_config.ctfd_webhook_token}'}
+    headers = {
+        'Authorization':
+            f'Token {ctfd_config.ctfd_webhook_token}',
+        'Content-type': 'application/json'
+    }
     response = requests.get(
         f'{ctfd_config.ctfd_webhook_url}/api/v1/challenges', headers=headers)
     challenges = response.json()['data']
+    if challenges is None:
+        print(response.json())
+        return []
 
     first_bloods = []
     for challenge in challenges:
         solves_response = requests.get(
-            f'{ctfd_config.ctfd_webhook_url}/api/v1/challenges/{
-                challenge["id"]}/solves',
+            f'{ctfd_config.ctfd_webhook_url}/api/v1/challenges/{challenge["id"]}/solves',
             headers=headers
         )
-        solves = solves_response.json()['data']
+        solves = solves_response.json().get('data')
+        # print(solves)
         if solves:
             first_solve = solves[0]  # First solve is the first blood
+            submission = requests.get(
+                f"{ctfd_config.ctfd_webhook_url}/api/v1/submissions?challeng_id={challenge.get('id')}&team_id={first_solve.get('account_id')}", headers=headers).json().get('data')[0]
+            user = requests.get(
+                f'{ctfd_config.ctfd_webhook_url}/api/v1/users/{submission.get("user_id")}', headers=headers).json().get('data')
+            # print(user)
             first_bloods.append(FirstBloodRecord(
                 challenge_id=challenge['id'],
                 challenge_name=challenge['name'],
-                first_blood_player_id=first_solve['user']['id'],
-                first_blood_player_name=first_solve['user']['name'],
-                first_blood_player_team=first_solve['team']['name'] if 'team' in first_solve else 'No Team'
+                first_blood_player_id=user['id'],
+                first_blood_player_name=user['name'],
+                first_blood_player_team=first_solve['name'],
+                timestamp=time.mktime(datetime.strptime(first_solve['date'], '%Y-%m-%dT%H:%M:%S.%fZ').timetuple())
             ))
     return first_bloods
 
 
 def notify_new_first_bloods():
     first_bloods = fetch_ctfd_first_blood_data()
-    webhook = discord_webhook.DiscordWebhook(url=dc_config.dc_webhook_url)
-
+    content = ""
+    
     for blood in first_bloods:
+        blood_time = datetime.fromtimestamp(blood.timestamp, timezone(timedelta(hours=8)))
+        blood_content = f"""## **{blood.challenge_name} 🩸 First Blood**
+### Solved time: {blood_time.strftime('%Y-%m-%d %H:%M:%S %Z')}
+### Solver: {blood.first_blood_player_name} ({blood.first_blood_player_team})
+------
+"""
         existing = read_by_challenge_id(blood.challenge_id)
         if existing is None:
             create_record(blood)
-            embed = discord_webhook.DiscordEmbed(
-                title="🩸 New First Blood!",
-                description=f"Challenge: {blood.challenge_name}",
-                color="ff0000"
-            )
-            embed.add_field(name="Solver", value=blood.first_blood_player_name)
-            embed.add_field(name="Team", value=blood.first_blood_player_team)
-            webhook.add_embed(embed)
-            webhook.execute()
-            webhook.remove_embed(0)  # Clear embed for next iteration
+            content += blood_content
+    print(content)
+    requests.post(f'{dc_config.dc_webhook_url}', headers={"Content-type": "application/json"}, json={"content": content})
 
 
-if __name__ == "__main__":
-    init_db()
+init_db()
+run_config = RunConfig()
+while True:
+    print(f"******** {datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S %Z')} start process ********")
     notify_new_first_bloods()
+    print(f"******** {datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S %Z')} end process ********")
+    time.sleep(run_config.cron_time)
